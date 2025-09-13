@@ -60,7 +60,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image"
-                bat 'docker build -t rishi-CD/demo-app:%BUILD_NUMBER% .'
+                bat 'docker build -t rishi5521/demo-app:%BUILD_NUMBER% .'
             }
         }
 
@@ -80,7 +80,7 @@ stage('Docker Push') {
     steps {
         bat """
             ECHO Pushing Docker image to registry
-            docker push rishi-CD/demo-app:%BUILD_NUMBER%
+            docker push rishi5521/demo-app:%BUILD_NUMBER%
         """
     }
 }
@@ -89,7 +89,7 @@ stage('Docker Deploy') {
     steps {
         bat """
             ECHO Deploying Docker container
-            docker run -d -p 8088:8088 rishi-CD/demo-app:%BUILD_NUMBER%
+            docker run -d -p 8088:8088 rishi5521/demo-app:%BUILD_NUMBER%
         """
     }
 }
