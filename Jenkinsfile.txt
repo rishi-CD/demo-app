@@ -65,24 +65,35 @@ pipeline {
         }
 
         stage('Docker Login') {
-            steps {
-                withCredentials([string(credentialsId: 'dockerId1', variable: 'Dockerpwd')]) {
-                    bat 'docker login -u rishi-CD -p %Dockerpwd%'
-                }
-            }
+    steps {
+        // Use usernamePassword for "Username with Password" credentials
+        withCredentials([usernamePassword(credentialsId: 'dockerId1', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PWD')]) {
+            bat """
+                ECHO Logging in to Docker registry
+                docker login -u %DOCKER_USER% -p %DOCKER_PWD%
+            """
         }
+    }
+}
 
-        stage('Docker Push') {
-            steps {
-                bat 'docker push rishi-CD/demo-app:%BUILD_NUMBER%'
-            }
-        }
+stage('Docker Push') {
+    steps {
+        bat """
+            ECHO Pushing Docker image to registry
+            docker push rishi-CD/demo-app:%BUILD_NUMBER%
+        """
+    }
+}
 
-        stage('Docker Deploy') {
-            steps {
-                bat 'docker run -d -p 8088:8088 rishi-CD/demo-app:%BUILD_NUMBER%'
-            }
-        }
+stage('Docker Deploy') {
+    steps {
+        bat """
+            ECHO Deploying Docker container
+            docker run -d -p 8088:8088 rishi-CD/demo-app:%BUILD_NUMBER%
+        """
+    }
+}
+
 
         stage('Archive Artifacts') {
             steps {
