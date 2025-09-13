@@ -7,7 +7,7 @@ pipeline {
         stage('Verify Tools') {
             steps {
                 echo "Verifying Java, Maven, Git, and Docker versions"
-                bat """
+                sh """
 
 
                     # Maven check
@@ -42,20 +42,20 @@ pipeline {
 
         stage('Compile and Clean') {
             steps {
-                bat 'mvn clean compile'
+                sh 'mvn clean compile'
             }
         }
 
         stage('Package') {
             steps {
-                bat 'mvn package'
+                sh 'mvn package'
             }
         }
 
         stage('Docker Cleanup') {
             steps {
                 echo "Cleaning up old Docker containers and images"
-                bat """
+                sh """
                     # Stop any container using port 8088
                     OLD_CONTAINER=\$(docker ps -q -f "publish=8088")
                     if [ ! -z "\$OLD_CONTAINER" ]; then
@@ -77,14 +77,14 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image"
-                bat 'docker build -t rishi-CD/demo-app:${BUILD_NUMBER} .'
+                sh 'docker build -t rishi-CD/demo-app:${BUILD_NUMBER} .'
             }
         }
 
         stage('Docker Login') {
             steps {
                 withCredentials([string(credentialsId: 'dockerId1', variable: 'Dockerpwd')]) {
-                    bat 'docker login -u rishi-CD -p ${Dockerpwd}'
+                    sh 'docker login -u rishi-CD -p ${Dockerpwd}'
                 }
             }
         }
@@ -97,7 +97,7 @@ pipeline {
 
         stage('Docker Deploy') {
             steps {
-                bat 'docker run -itd -p 8088:8088 rishi-CD/demo-app:${BUILD_NUMBER}'
+                sh 'docker run -itd -p 8088:8088 rishi-CD/demo-app:${BUILD_NUMBER}'
             }
         }
 
