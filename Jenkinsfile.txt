@@ -8,17 +8,34 @@ pipeline {
             steps {
                 echo "Verifying Java, Maven, Git, and Docker versions"
                 bat """
-                    echo ===== Java Version =====
-                    java -version
 
-                    echo ===== Maven Version =====
-                    mvn -v
 
-                    echo ===== Git Version =====
-                    git --version
+                    # Maven check
+                    MAVEN_VER=\$(mvn -v | awk 'NR==1{print \$3}')
+                    echo "Detected Maven version: \$MAVEN_VER"
+                    MAVEN_MAJOR=\$(echo \$MAVEN_VER | awk -F. '{print \$1}')
+                    if [ "\$MAVEN_MAJOR" -lt 3 ]; then
+                        echo "ERROR: Maven 3.x or higher is required!"
+                        exit 1
+                    fi
 
-                    echo ===== Docker Version =====
-                    docker --version
+                    # Git check
+                    GIT_VER=\$(git --version | awk '{print \$3}')
+                    echo "Detected Git version: \$GIT_VER"
+                    GIT_MAJOR=\$(echo \$GIT_VER | awk -F. '{print \$1}')
+                    if [ "\$GIT_MAJOR" -lt 2 ]; then
+                        echo "ERROR: Git 2.x or higher is required!"
+                        exit 1
+                    fi
+
+                    # Docker check
+                    DOCKER_VER=\$(docker --version | awk '{print \$3}' | sed 's/,//')
+                    echo "Detected Docker version: \$DOCKER_VER"
+                    DOCKER_MAJOR=\$(echo \$DOCKER_VER | awk -F. '{print \$1}')
+                    if [ "\$DOCKER_MAJOR" -lt 20 ]; then
+                        echo "ERROR: Docker 20.x or higher is required!"
+                        exit 1
+                    fi
                 """
             }
         }
@@ -39,16 +56,20 @@ pipeline {
             steps {
                 echo "Cleaning up old Docker containers and images"
                 bat """
-                    for /f "tokens=*" %%i in ('docker ps -q -f "publish=8080"') do (
-                        echo Stopping old container: %%i
-                        docker stop %%i
-                        docker rm %%i
-                    )
+                    # Stop any container using port 8088
+                    OLD_CONTAINER=\$(docker ps -q -f "publish=8088")
+                    if [ ! -z "\$OLD_CONTAINER" ]; then
+                        echo "Stopping old container: \$OLD_CONTAINER"
+                        docker stop \$OLD_CONTAINER
+                        docker rm \$OLD_CONTAINER
+                    fi
 
-                    for /f "tokens=*" %%i in ('docker images -q rishi-CD/demo-app') do (
-                        echo Removing old image: %%i
-                        docker rmi -f %%i
-                    )
+                    # Remove old images with the same name
+                    OLD_IMAGE=\$(docker images -q rishi-CD/demo-app)
+                    if [ ! -z "\$OLD_IMAGE" ]; then
+                        echo "Removing old image: \$OLD_IMAGE"
+                        docker rmi -f \$OLD_IMAGE
+                    fi
                 """
             }
         }
@@ -56,27 +77,27 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image"
-                bat "docker build -t rishi-CD/demo-app:%BUILD_NUMBER% ."
+                bat 'docker build -t rishi-CD/demo-app:${BUILD_NUMBER} .'
             }
         }
 
         stage('Docker Login') {
             steps {
                 withCredentials([string(credentialsId: 'dockerId1', variable: 'Dockerpwd')]) {
-                    bat "docker login -u rishi-CD -p %Dockerpwd%"
+                    bat 'docker login -u rishi-CD -p ${Dockerpwd}'
                 }
             }
         }
 
         stage('Docker Push') {
             steps {
-                bat "docker push rishi-CD/demo-app:%BUILD_NUMBER%"
+                bat 'docker push rishi-CD/demo-app:${BUILD_NUMBER}'
             }
         }
 
         stage('Docker Deploy') {
             steps {
-                bat "docker run -itd -p 8088:8088 rishi-CD/demo-app:%BUILD_NUMBER%"
+                bat 'docker run -itd -p 8088:8088 rishi-CD/demo-app:${BUILD_NUMBER}'
             }
         }
 
