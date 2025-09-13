@@ -7,69 +7,48 @@ pipeline {
         stage('Verify Tools') {
             steps {
                 echo "Verifying Java, Maven, Git, and Docker versions"
-                sh """
+                bat """
+                    REM Maven check
+                    FOR /F "tokens=3" %%a IN ('mvn -v ^| findstr "Apache"') DO SET MAVEN_VER=%%a
+                    ECHO Detected Maven version: %MAVEN_VER%
 
+                    REM Git check
+                    FOR /F "tokens=3" %%a IN ('git --version') DO SET GIT_VER=%%a
+                    ECHO Detected Git version: %GIT_VER%
 
-                    # Maven check
-                    MAVEN_VER=\$(mvn -v | awk 'NR==1{print \$3}')
-                    echo "Detected Maven version: \$MAVEN_VER"
-                    MAVEN_MAJOR=\$(echo \$MAVEN_VER | awk -F. '{print \$1}')
-                    if [ "\$MAVEN_MAJOR" -lt 3 ]; then
-                        echo "ERROR: Maven 3.x or higher is required!"
-                        exit 1
-                    fi
-
-                    # Git check
-                    GIT_VER=\$(git --version | awk '{print \$3}')
-                    echo "Detected Git version: \$GIT_VER"
-                    GIT_MAJOR=\$(echo \$GIT_VER | awk -F. '{print \$1}')
-                    if [ "\$GIT_MAJOR" -lt 2 ]; then
-                        echo "ERROR: Git 2.x or higher is required!"
-                        exit 1
-                    fi
-
-                    # Docker check
-                    DOCKER_VER=\$(docker --version | awk '{print \$3}' | sed 's/,//')
-                    echo "Detected Docker version: \$DOCKER_VER"
-                    DOCKER_MAJOR=\$(echo \$DOCKER_VER | awk -F. '{print \$1}')
-                    if [ "\$DOCKER_MAJOR" -lt 20 ]; then
-                        echo "ERROR: Docker 20.x or higher is required!"
-                        exit 1
-                    fi
+                    REM Docker check
+                    FOR /F "tokens=3 delims=," %%a IN ('docker --version') DO SET DOCKER_VER=%%a
+                    ECHO Detected Docker version: %DOCKER_VER%
                 """
             }
         }
 
         stage('Compile and Clean') {
             steps {
-                sh 'mvn clean compile'
+                bat 'mvn clean compile'
             }
         }
 
         stage('Package') {
             steps {
-                sh 'mvn package'
+                bat 'mvn package'
             }
         }
 
         stage('Docker Cleanup') {
             steps {
                 echo "Cleaning up old Docker containers and images"
-                sh """
-                    # Stop any container using port 8088
-                    OLD_CONTAINER=\$(docker ps -q -f "publish=8088")
-                    if [ ! -z "\$OLD_CONTAINER" ]; then
-                        echo "Stopping old container: \$OLD_CONTAINER"
-                        docker stop \$OLD_CONTAINER
-                        docker rm \$OLD_CONTAINER
-                    fi
+                bat """
+                    FOR /F "tokens=*" %%c IN ('docker ps -q -f "publish=8088"') DO (
+                        ECHO Stopping old container: %%c
+                        docker stop %%c
+                        docker rm %%c
+                    )
 
-                    # Remove old images with the same name
-                    OLD_IMAGE=\$(docker images -q rishi-CD/demo-app)
-                    if [ ! -z "\$OLD_IMAGE" ]; then
-                        echo "Removing old image: \$OLD_IMAGE"
-                        docker rmi -f \$OLD_IMAGE
-                    fi
+                    FOR /F "tokens=*" %%i IN ('docker images -q rishi-CD/demo-app') DO (
+                        ECHO Removing old image: %%i
+                        docker rmi -f %%i
+                    )
                 """
             }
         }
@@ -77,27 +56,27 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image"
-                sh 'docker build -t rishi-CD/demo-app:${BUILD_NUMBER} .'
+                bat 'docker build -t rishi-CD/demo-app:%BUILD_NUMBER% .'
             }
         }
 
         stage('Docker Login') {
             steps {
                 withCredentials([string(credentialsId: 'dockerId1', variable: 'Dockerpwd')]) {
-                    sh 'docker login -u rishi-CD -p ${Dockerpwd}'
+                    bat 'docker login -u rishi-CD -p %Dockerpwd%'
                 }
             }
         }
 
         stage('Docker Push') {
             steps {
-                bat 'docker push rishi-CD/demo-app:${BUILD_NUMBER}'
+                bat 'docker push rishi-CD/demo-app:%BUILD_NUMBER%'
             }
         }
 
         stage('Docker Deploy') {
             steps {
-                sh 'docker run -itd -p 8088:8088 rishi-CD/demo-app:${BUILD_NUMBER}'
+                bat 'docker run -d -p 8088:8088 rishi-CD/demo-app:%BUILD_NUMBER%'
             }
         }
 
