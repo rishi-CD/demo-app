@@ -36,22 +36,26 @@ pipeline {
         }
 
         stage('Docker Cleanup') {
-            steps {
-                echo "Cleaning up old Docker containers and images"
-                bat """
-                    FOR /F "tokens=*" %%c IN ('docker ps -q -f "publish=8088"') DO (
-                        ECHO Stopping old container: %%c
-                        docker stop %%c
-                        docker rm %%c
-                    )
+    steps {
+        echo "Cleaning up old Docker containers and images"
+        bat """
+            REM ===== Stop any container using port 8088 =====
+            FOR /F "tokens=*" %%c IN ('docker ps -q -f "publish=8088"') DO (
+                ECHO Stopping old container: %%c
+                docker stop %%c
+                docker rm %%c
+            )
 
-                    FOR /F "tokens=*" %%i IN ('docker images -q rishi-CD/demo-app') DO (
-                        ECHO Removing old image: %%i
-                        docker rmi -f %%i
-                    )
-                """
-            }
-        }
+            REM ===== Remove old images with the same name =====
+            FOR /F "tokens=*" %%i IN ('docker images -q rishi-CD/demo-app') DO (
+                ECHO Removing old image: %%i
+                docker rmi -f %%i
+            )
+
+            ECHO Docker cleanup completed!
+        """
+    }
+}
 
         stage('Build Docker Image') {
             steps {
