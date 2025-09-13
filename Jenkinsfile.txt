@@ -39,7 +39,7 @@ pipeline {
             steps {
                 echo "Cleaning up old Docker containers and images"
                 bat """
-                    for /f "tokens=*" %%i in ('docker ps -q -f "publish=8088"') do (
+                    for /f "tokens=*" %%i in ('docker ps -q -f "publish=8080"') do (
                         echo Stopping old container: %%i
                         docker stop %%i
                         docker rm %%i
